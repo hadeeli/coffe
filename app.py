@@ -8,11 +8,9 @@ import matplotlib.dates as mdates
 # =====================
 # إعداد الصفحة
 # =====================
-st.set_page_config(page_title="توقع استهلاك القهوة", layout="wide")
+st.set_page_config(page_title="توقع القهوة", layout="wide")
 
-st.markdown("<h1 style='text-align: center;'>☕ نظام التنبؤ باستهلاك القهوة</h1>", unsafe_allow_html=True)
-
-st.markdown("---")
+st.markdown("<h1 style='text-align:center;'>☕ نظام التنبؤ الذكي للقهوة</h1>", unsafe_allow_html=True)
 
 # =====================
 # تحميل النموذج
@@ -24,124 +22,156 @@ features = joblib.load("features.pkl")
 # تحميل البيانات
 # =====================
 df = pd.read_csv("data.csv")
-
 df['Date'] = pd.to_datetime(df['Date'])
 df = df.sort_values('Date')
 df.set_index('Date', inplace=True)
 df = df.asfreq('D').fillna(0)
 
 # =====================
-# اختيار التاريخ
+# UI Inputs
 # =====================
-selected_date = st.date_input("📅 اختر تاريخ الهدف")
+selected_date = st.date_input("📅 اختر التاريخ")
 selected_date = pd.to_datetime(selected_date)
+
+n_future = st.slider("📆 عدد أيام التنبؤ بعد التاريخ المختار", 1, 14, 7)
 
 st.markdown("---")
 
 # =====================
-# آخر 5 أيام قبل التنبؤ
+# هل التاريخ موجود؟
 # =====================
-df["اسم اليوم"] = df.index.day_name()
+date_exists = selected_date in df.index
 
-st.subheader("📊 آخر 5 أيام من البيانات")
+st.info(f"📌 التاريخ موجود في البيانات: {date_exists}")
 
+# =====================
+# تجهيز البداية
+# =====================
+df_work = df.copy()
+last_real_date = df.index[-1]
+
+# =====================
+# تحديد نقطة البداية
+# =====================
+if date_exists:
+
+    # نوقف عند التاريخ المختار
+    df_work = df.loc[:selected_date].copy()
+    forecast_start = selected_date
+
+else:
+
+    # نستخدم كامل البيانات
+    forecast_start = last_real_date
+
+# =====================
+# عرض آخر 5 أيام (real + predicted لاحقًا)
+# =====================
+df_work["day_name"] = df_work.index.day_name()
+
+st.subheader("📊 آخر 5 أيام")
 st.dataframe(
-    df.tail(5)[["اسم اليوم", "Cups_Count"]]
+    df_work.tail(5)[["day_name", "Cups_Count"]]
     .rename(columns={"Cups_Count": "عدد الأكواب"})
 )
 
 # =====================
-# زر التنبؤ
+# زر التنفيذ
 # =====================
-if st.button("🔮 تنفيذ التنبؤ"):
+if st.button("🔮 تشغيل التنبؤ"):
 
-    last_date = df.index[-1]
+    df_future = df.copy()
+    future_values = []
+    future_dates = []
 
-    # =====================
-    # التحقق من التاريخ
-    # =====================
-    if selected_date <= last_date:
-        st.error("⚠️ يجب اختيار تاريخ بعد آخر تاريخ في البيانات")
+    # إذا التاريخ غير موجود → نحسب حتى الوصول له + بعده
+    if not date_exists:
+        total_days = (selected_date - last_real_date).days + n_future
     else:
+        total_days = n_future
 
-        n_days = (selected_date - last_date).days
+    # =====================
+    # Forecast loop
+    # =====================
+    for i in range(total_days):
 
-        future_predictions = []
-        df_future = df.copy()
+        next_date = df_future.index[-1] + pd.Timedelta(days=1)
 
-        # =====================
-        # Forecast loop
-        # =====================
-        for i in range(n_days):
+        row = pd.DataFrame(index=[next_date])
 
-            next_date = df_future.index[-1] + pd.Timedelta(days=1)
+        row["day_of_week"] = next_date.dayofweek
+        row["month"] = next_date.month
+        row["is_weekend"] = 1 if next_date.dayofweek >= 5 else 0
 
-            new_row = pd.DataFrame(index=[next_date])
+        row["lag_1"] = df_future["Cups_Count"].iloc[-1]
+        row["lag_7"] = df_future["Cups_Count"].iloc[-7]
 
-            new_row['day_of_week'] = next_date.dayofweek
-            new_row['month'] = next_date.month
-            new_row['is_weekend'] = 1 if next_date.dayofweek >= 5 else 0
+        row["rolling_mean_7"] = df_future["Cups_Count"].iloc[-7:].mean()
+        row["rolling_std_7"] = df_future["Cups_Count"].iloc[-7:].std()
 
-            new_row['lag_1'] = df_future['Cups_Count'].iloc[-1]
-            new_row['lag_7'] = df_future['Cups_Count'].iloc[-7]
+        pred = model.predict(row[features])[0]
+        pred = max(0, int(round(pred)))
 
-            new_row['rolling_mean_7'] = df_future['Cups_Count'].iloc[-7:].mean()
-            new_row['rolling_std_7'] = df_future['Cups_Count'].iloc[-7:].std()
+        df_future = pd.concat([df_future, pd.DataFrame({"Cups_Count": pred}, index=[next_date])])
 
-            pred = model.predict(new_row[features])[0]
-            pred = max(0, int(round(pred)))
+        future_values.append(pred)
+        future_dates.append(next_date)
 
-            future_predictions.append(pred)
+    # =====================
+    # تحديد جزء العرض (آخر 5 أيام + forecast)
+    # =====================
+    full_series = df_future.copy()
 
-            new_row['Cups_Count'] = pred
-            df_future = pd.concat([df_future, new_row])
+    full_series["day_name"] = full_series.index.day_name()
 
-        # =====================
-        # جدول التنبؤ
-        # =====================
-        future_dates = pd.date_range(
-            start=last_date + pd.Timedelta(days=1),
-            periods=n_days
-        )
+    display_df = full_series.tail(5 + n_future)
 
-        forecast_df = pd.DataFrame({
-            "التاريخ": future_dates,
-            "اسم اليوم": [d.day_name() for d in future_dates],
-            "عدد الأكواب": future_predictions
+    st.subheader("📅 النتائج (5 أيام + التنبؤ)")
+
+    st.dataframe(
+        display_df[["day_name", "Cups_Count"]]
+        .rename(columns={
+            "day_name": "اسم اليوم",
+            "Cups_Count": "عدد الأكواب"
         })
+    )
 
-        st.subheader("📅 جدول التنبؤ حتى التاريخ المختار")
-        st.dataframe(forecast_df)
+    # =====================
+    # Forecast table
+    # =====================
+    forecast_df = pd.DataFrame({
+        "التاريخ": future_dates[-n_future:],
+        "اسم اليوم": [d.day_name() for d in future_dates[-n_future:]],
+        "عدد الأكواب": future_values[-n_future:]
+    })
 
-        # =====================
-        # الرسم
-        # =====================
-        st.subheader("📈 الرسم البياني")
+    st.subheader("📊 جدول التنبؤ فقط")
+    st.dataframe(forecast_df)
 
-        fig, ax = plt.subplots(figsize=(12,5))
+    # =====================
+    # الرسم
+    # =====================
+    st.subheader("📈 الرسم البياني")
 
-        # آخر 30 يوم فعلي
-        ax.plot(df.index[-30:],
-                df['Cups_Count'].iloc[-30:],
-                label="القيم الفعلية")
+    fig, ax = plt.subplots(figsize=(12,5))
 
-        last_value = df['Cups_Count'].iloc[-1]
+    ax.plot(df.index[-30:], df["Cups_Count"].iloc[-30:], label="القيم الفعلية")
 
-        all_dates = [last_date] + list(forecast_df["التاريخ"])
-        all_values = [last_value] + list(forecast_df["عدد الأكواب"])
+    last_value = df["Cups_Count"].iloc[-1]
 
-        ax.plot(all_dates, all_values,
-                marker='o',
-                linestyle='--',
-                label="التنبؤ")
+    all_dates = [last_real_date] + future_dates
+    all_values = [last_value] + future_values
 
-        # تحسين شكل التاريخ
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-        plt.xticks(rotation=45)
+    ax.plot(all_dates, all_values,
+            marker="o",
+            linestyle="--",
+            label="التنبؤ")
 
-        ax.set_title("توقع استهلاك القهوة")
-        ax.legend()
-        ax.grid(alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+    plt.xticks(rotation=45)
 
-        st.pyplot(fig)
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    st.pyplot(fig)
