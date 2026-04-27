@@ -1,20 +1,25 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import joblib
 import matplotlib.pyplot as plt
-from xgboost import XGBRegressor
 
-st.title("☕ Coffee Demand Forecast App")
+st.set_page_config(page_title="Coffee Forecast App", layout="wide")
 
-st.write("7-Day Forecast using XGBoost Model")
+st.title("☕ Coffee Demand Forecast")
+st.write("Forecast next 7 days using XGBoost model")
 
-# نفترض عندك df جاهز
-df = pd.read_csv("data.csv", parse_dates=["Date"], index_col="Date")
+# تحميل النموذج
+model = joblib.load("xgb_model.pkl")
+features = joblib.load("features.pkl")
 
-features = [
-    'lag_1', 'lag_7',
-    'rolling_mean_7', 'rolling_std_7',
-    'day_of_week', 'month', 'is_weekend'
-]
+# تحميل البيانات
+df = pd.read_excel("data.xlsx")
 
-target = "Cups_Count"
+df['Date'] = pd.to_datetime(df['Date'])
+df = df.sort_values('Date')
+df.set_index('Date', inplace=True)
+df = df.asfreq('D').fillna(0)
+
+st.subheader("📊 Raw Data")
+st.dataframe(df.tail())
