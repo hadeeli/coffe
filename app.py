@@ -8,9 +8,11 @@ import matplotlib.dates as mdates
 # =====================
 # إعداد الصفحة
 # =====================
-st.set_page_config(page_title="Coffee Forecast", layout="wide")
+st.set_page_config(page_title="توقع القهوة", layout="wide")
 
 st.markdown("<h1 style='text-align:center;'>☕ نظام التنبؤ باستهلاك القهوة</h1>", unsafe_allow_html=True)
+
+st.markdown("---")
 
 # =====================
 # تحميل النموذج
@@ -19,7 +21,7 @@ model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
 
 # =====================
-# البيانات
+# تحميل البيانات
 # =====================
 df = pd.read_csv("data.csv")
 df['Date'] = pd.to_datetime(df['Date'])
@@ -28,58 +30,55 @@ df.set_index('Date', inplace=True)
 df = df.asfreq('D').fillna(0)
 
 # =====================
-# INPUTS
+# Inputs
 # =====================
-col1, col2 = st.columns(2)
-
-with col1:
-    selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
-
-with col2:
-    n_days = st.number_input(
-        "📆 عدد أيام التنبؤ",
-        min_value=1,
-        max_value=30,
-        value=5,
-        step=1
-    )
-
+selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
 selected_date = pd.to_datetime(selected_date)
+
+n_days = st.number_input(
+    "📆 عدد أيام التنبؤ",
+    min_value=1,
+    max_value=30,
+    value=5,
+    step=1
+)
 
 st.markdown("---")
 
 # =====================
-# آخر 5 أيام (جدول 1)
+# بيانات قبل التاريخ المختار
 # =====================
-df_display = df.copy()
-df_display["Type"] = "Historical"
+df_before = df.loc[:selected_date].copy()
 
-st.subheader("📊 آخر 5 أيام (بيانات فعلية)")
+df_before["day_name"] = df_before.index.day_name()
+
+# =====================
+# 📊 جدول 1: آخر 5 أيام (يتغير حسب التاريخ)
+# =====================
+st.subheader("📊 آخر 5 أيام قبل التاريخ المختار")
 
 st.dataframe(
-    df_display.tail(5)[["Cups_Count"]]
-    .assign(Type="Historical")
-    .rename(columns={"Cups_Count": "عدد الأكواب"})
+    df_before.tail(5)[["day_name", "Cups_Count"]]
+    .rename(columns={
+        "day_name": "اسم اليوم",
+        "Cups_Count": "عدد الأكواب"
+    })
 )
 
 # =====================
 # زر التنفيذ
 # =====================
-if st.button("🔮 تشغيل التنبؤ"):
+if st.button("🔮 تنفيذ التنبؤ"):
 
-    df_future = df.copy()
-    predictions = []
+    df_future = df_before.copy()
+
+    preds = []
     dates = []
-    types = []
-
-    last_date = df.index[-1]
-
-    total_days = n_days
 
     # =====================
     # Forecast loop
     # =====================
-    for i in range(total_days):
+    for i in range(int(n_days)):
 
         next_date = df_future.index[-1] + pd.Timedelta(days=1)
 
@@ -103,63 +102,50 @@ if st.button("🔮 تشغيل التنبؤ"):
             pd.DataFrame({"Cups_Count": pred}, index=[next_date])
         ])
 
-        predictions.append(pred)
+        preds.append(pred)
         dates.append(next_date)
-        types.append("Forecast")
 
     # =====================
-    # FORECAST TABLE (جدول 2)
+    # 📊 جدول 2: التنبؤ
     # =====================
     forecast_df = pd.DataFrame({
         "التاريخ": dates,
-        "عدد الأكواب": predictions,
-        "النوع": types
+        "اسم اليوم": [d.day_name() for d in dates],
+        "عدد الأكواب": preds
     })
 
     st.subheader("📊 جدول التنبؤ")
 
-    st.dataframe(forecast_df.rename(columns={
-        "النوع": "نوع البيانات"
-    }))
+    st.dataframe(forecast_df)
 
     # =====================
-    # COMBINED DATA FOR PLOT
-    # =====================
-    df_plot = df.copy()
-    df_plot["Type"] = "Historical"
-
-    forecast_series = pd.DataFrame({
-        "Cups_Count": predictions,
-        "Type": "Forecast"
-    }, index=dates)
-
-    combined = pd.concat([df_plot, forecast_series])
-
-    # =====================
-    # رسم بياني
+    # 📈 الرسم (مُصلح بالكامل)
     # =====================
     st.subheader("📈 الرسم البياني")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    # قبل التنبؤ
-    hist = combined[combined["Type"] == "Historical"]
-    ax.plot(hist.index, hist["Cups_Count"],
+    # 🔵 آخر 30 يوم فقط قبل التاريخ
+    hist = df.loc[:selected_date].tail(30)
+
+    ax.plot(hist.index,
+            hist["Cups_Count"],
             label="Historical",
             color="blue")
 
-    # التنبؤ
-    fc = combined[combined["Type"] == "Forecast"]
-    ax.plot(fc.index, fc["Cups_Count"],
+    # 🟠 التنبؤ
+    ax.plot(dates,
+            preds,
             label="Forecast",
             color="orange",
             linestyle="--")
 
-    # نقطة البداية
+    # خط بداية التنبؤ
     ax.axvline(selected_date, color="gray", linestyle=":")
 
-    # تنسيق
+    # تحسين التاريخ
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
+    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     plt.xticks(rotation=45)
 
     ax.set_title("Coffee Demand Forecast")
