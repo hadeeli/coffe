@@ -8,10 +8,14 @@ import matplotlib.dates as mdates
 # =====================
 # إعداد الصفحة
 # =====================
-st.set_page_config(page_title="Coffee Forecast App", layout="wide")
+st.set_page_config(
+    page_title="توقع استهلاك القهوة",
+    layout="wide"
+)
 
-st.title("☕ Coffee Demand Forecast App")
-st.write("Forecast using XGBoost model + custom date selection")
+st.markdown("<h1 style='text-align: center;'>☕ نظام التنبؤ باستهلاك القهوة</h1>", unsafe_allow_html=True)
+
+st.markdown("---")
 
 # =====================
 # تحميل الموديل
@@ -33,21 +37,29 @@ df = df.asfreq('D').fillna(0)
 # اختيار التاريخ
 # =====================
 selected_date = st.date_input("📅 اختر تاريخ التنبؤ")
-
 selected_date = pd.to_datetime(selected_date)
 
 # =====================
-# عرض 5 أيام قبل التاريخ
+# تجهيز بيانات قبل التاريخ
 # =====================
 df_filtered = df.loc[:selected_date].copy()
 
-st.subheader("📊 Last 5 Days Before Selected Date")
-st.dataframe(df_filtered.tail(5))
+# عمود اسم اليوم
+df_filtered["اسم اليوم"] = df_filtered.index.day_name()
+
+st.subheader("📊 آخر 5 أيام قبل التاريخ المختار")
+
+st.dataframe(
+    df_filtered.tail(5)[["اسم اليوم", "Cups_Count"]]
+    .rename(columns={
+        "Cups_Count": "عدد الأكواب"
+    })
+)
 
 # =====================
 # زر التنبؤ
 # =====================
-if st.button("🔮 Predict Next 7 Days"):
+if st.button("🔮 تنفيذ التنبؤ"):
 
     future_predictions = []
     df_future = df_filtered.copy()
@@ -80,7 +92,7 @@ if st.button("🔮 Predict Next 7 Days"):
         df_future = pd.concat([df_future, new_row])
 
     # =====================
-    # إنشاء التواريخ
+    # جدول التنبؤ
     # =====================
     future_dates = pd.date_range(
         start=df_filtered.index[-1] + pd.Timedelta(days=1),
@@ -88,46 +100,41 @@ if st.button("🔮 Predict Next 7 Days"):
     )
 
     forecast_df = pd.DataFrame({
-        "Date": future_dates,
-        "Forecast": future_predictions
+        "التاريخ": future_dates,
+        "اسم اليوم": [d.day_name() for d in future_dates],
+        "عدد الأكواب": future_predictions
     })
 
-    # =====================
-    # عرض الجدول
-    # =====================
-    st.subheader("📅 Forecast Table")
+    st.subheader("📅 التنبؤ للأيام القادمة")
     st.dataframe(forecast_df)
 
     # =====================
-    # الرسم المحسن
+    # الرسم
     # =====================
-    st.subheader("📈 Forecast Chart")
+    st.subheader("📈 الرسم البياني للتنبؤ")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    # آخر 30 يوم قبل التاريخ
     ax.plot(df_filtered.index[-30:],
             df_filtered['Cups_Count'].iloc[-30:],
-            label="Actual")
+            label="القيم الفعلية")
 
-    # ربط آخر نقطة مع التوقع (بدون انقطاع)
     last_date = df_filtered.index[-1]
     last_value = df_filtered['Cups_Count'].iloc[-1]
 
-    all_dates = [last_date] + list(forecast_df["Date"])
-    all_values = [last_value] + list(forecast_df["Forecast"])
+    all_dates = [last_date] + list(forecast_df["التاريخ"])
+    all_values = [last_value] + list(forecast_df["عدد الأكواب"])
 
     ax.plot(all_dates, all_values,
             marker='o',
             linestyle='--',
-            label="Forecast")
+            label="التنبؤ")
 
-    # تحسين شكل التواريخ
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     plt.xticks(rotation=45)
 
-    ax.set_title("Coffee Demand Forecast (7 Days)")
+    ax.set_title("توقع استهلاك القهوة للأيام القادمة")
     ax.legend()
     ax.grid(alpha=0.3)
 
