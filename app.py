@@ -8,9 +8,9 @@ import matplotlib.dates as mdates
 # =====================
 # إعداد الصفحة
 # =====================
-st.set_page_config(page_title="توقع القهوة", layout="wide")
+st.set_page_config(page_title="Coffee Forecast", layout="wide")
 
-st.markdown("<h1 style='text-align:center;'>☕ نظام التنبؤ باستهلاك القهوة</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>☕ نظام التنبؤ الذكي للقهوة</h1>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -21,44 +21,47 @@ model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
 
 # =====================
-# تحميل البيانات
+# تحميل البيانات (ثابتة)
 # =====================
 df = pd.read_csv("data.csv")
+
 df['Date'] = pd.to_datetime(df['Date'])
 df = df.sort_values('Date')
 df.set_index('Date', inplace=True)
 df = df.asfreq('D').fillna(0)
 
+last_real_date = df.index[-1]
+
 # =====================
 # Inputs
 # =====================
-selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
-selected_date = pd.to_datetime(selected_date)
+col1, col2 = st.columns(2)
 
-n_days = st.number_input(
-    "📆 عدد أيام التنبؤ",
-    min_value=1,
-    max_value=30,
-    value=5,
-    step=1
-)
+with col1:
+    selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
+
+with col2:
+    n_days = st.number_input(
+        "📆 عدد أيام التنبؤ",
+        min_value=1,
+        max_value=30,
+        value=5,
+        step=1
+    )
+
+selected_date = pd.to_datetime(selected_date)
 
 st.markdown("---")
 
 # =====================
-# بيانات قبل التاريخ المختار
+# 📊 5 أيام قبل (للعرض فقط)
 # =====================
-df_before = df.loc[:selected_date].copy()
+df["day_name"] = df.index.day_name()
 
-df_before["day_name"] = df_before.index.day_name()
-
-# =====================
-# 📊 جدول 1: آخر 5 أيام (يتغير حسب التاريخ)
-# =====================
-st.subheader("📊 آخر 5 أيام قبل التاريخ المختار")
+st.subheader("📊 آخر 5 أيام (سياق تاريخي)")
 
 st.dataframe(
-    df_before.tail(5)[["day_name", "Cups_Count"]]
+    df.tail(5)[["day_name", "Cups_Count"]]
     .rename(columns={
         "day_name": "اسم اليوم",
         "Cups_Count": "عدد الأكواب"
@@ -66,21 +69,21 @@ st.dataframe(
 )
 
 # =====================
-# زر التنفيذ
+# 🔮 Forecast Engine (المهم هنا)
 # =====================
-if st.button("🔮 تنفيذ التنبؤ"):
+if st.button("🔮 تشغيل التنبؤ"):
 
-    df_future = df_before.copy()
+    df_future = df.copy()
 
-    preds = []
+    predictions = []
     dates = []
 
-    # =====================
-    # Forecast loop
-    # =====================
-    for i in range(int(n_days)):
+    # دايم يبدأ من آخر بيانات حقيقية
+    current_date = last_real_date
 
-        next_date = df_future.index[-1] + pd.Timedelta(days=1)
+    for i in range(n_days):
+
+        next_date = current_date + pd.Timedelta(days=1)
 
         row = pd.DataFrame(index=[next_date])
 
@@ -102,16 +105,18 @@ if st.button("🔮 تنفيذ التنبؤ"):
             pd.DataFrame({"Cups_Count": pred}, index=[next_date])
         ])
 
-        preds.append(pred)
+        predictions.append(pred)
         dates.append(next_date)
 
+        current_date = next_date
+
     # =====================
-    # 📊 جدول 2: التنبؤ
+    # 📊 جدول التنبؤ
     # =====================
     forecast_df = pd.DataFrame({
         "التاريخ": dates,
         "اسم اليوم": [d.day_name() for d in dates],
-        "عدد الأكواب": preds
+        "عدد الأكواب": predictions
     })
 
     st.subheader("📊 جدول التنبؤ")
@@ -119,33 +124,31 @@ if st.button("🔮 تنفيذ التنبؤ"):
     st.dataframe(forecast_df)
 
     # =====================
-    # 📈 الرسم (مُصلح بالكامل)
+    # 📈 الرسم الصحيح (بدون زحمة)
     # =====================
     st.subheader("📈 الرسم البياني")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    # 🔵 آخر 30 يوم فقط قبل التاريخ
-    hist = df.loc[:selected_date].tail(30)
+    # 🔵 آخر 30 يوم فقط
+    hist = df.tail(30)
 
     ax.plot(hist.index,
             hist["Cups_Count"],
             label="Historical",
             color="blue")
 
-    # 🟠 التنبؤ
+    # 🟠 forecast
     ax.plot(dates,
-            preds,
+            predictions,
             label="Forecast",
             color="orange",
             linestyle="--")
 
     # خط بداية التنبؤ
-    ax.axvline(selected_date, color="gray", linestyle=":")
+    ax.axvline(last_real_date, color="gray", linestyle=":")
 
-    # تحسين التاريخ
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-    ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     plt.xticks(rotation=45)
 
     ax.set_title("Coffee Demand Forecast")
