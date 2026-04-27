@@ -8,17 +8,14 @@ import matplotlib.dates as mdates
 # =====================
 # إعداد الصفحة
 # =====================
-st.set_page_config(
-    page_title="توقع استهلاك القهوة",
-    layout="wide"
-)
+st.set_page_config(page_title="Coffee Forecast App", layout="wide")
 
 st.markdown("<h1 style='text-align: center;'>☕ نظام التنبؤ باستهلاك القهوة</h1>", unsafe_allow_html=True)
 
 st.markdown("---")
 
 # =====================
-# تحميل الموديل
+# تحميل النموذج
 # =====================
 model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
@@ -34,26 +31,40 @@ df.set_index('Date', inplace=True)
 df = df.asfreq('D').fillna(0)
 
 # =====================
-# اختيار التاريخ
+# خيارات المستخدم
 # =====================
-selected_date = st.date_input("📅 اختر تاريخ التنبؤ")
+mode = st.radio(
+    "🎯 اختر نوع التنبؤ",
+    ["🔮 تنبؤ مستقبلي", "📊 تنبؤ من تاريخ محدد"]
+)
+
+selected_date = st.date_input("📅 اختر التاريخ")
 selected_date = pd.to_datetime(selected_date)
 
+n_days = st.slider("📆 عدد أيام التنبؤ", 1, 14, 7)
+
+st.markdown("---")
+
 # =====================
-# تجهيز بيانات قبل التاريخ
+# تحديد نقطة البداية
 # =====================
-df_filtered = df.loc[:selected_date].copy()
+if mode == "🔮 تنبؤ مستقبلي":
+    df_input = df.copy()
+    start_index = df.index[-1]
 
-# عمود اسم اليوم
-df_filtered["اسم اليوم"] = df_filtered.index.day_name()
+else:
+    df_input = df.loc[:selected_date].copy()
+    start_index = df_input.index[-1]
 
-st.subheader("📊 آخر 5 أيام قبل التاريخ المختار")
+# =====================
+# عرض آخر 5 أيام
+# =====================
+df_input["اسم اليوم"] = df_input.index.day_name()
 
+st.subheader("📊 آخر 5 أيام")
 st.dataframe(
-    df_filtered.tail(5)[["اسم اليوم", "Cups_Count"]]
-    .rename(columns={
-        "Cups_Count": "عدد الأكواب"
-    })
+    df_input.tail(5)[["اسم اليوم", "Cups_Count"]]
+    .rename(columns={"Cups_Count": "عدد الأكواب"})
 )
 
 # =====================
@@ -62,12 +73,12 @@ st.dataframe(
 if st.button("🔮 تنفيذ التنبؤ"):
 
     future_predictions = []
-    df_future = df_filtered.copy()
+    df_future = df_input.copy()
 
     # =====================
     # Forecast loop
     # =====================
-    for i in range(7):
+    for i in range(n_days):
 
         next_date = df_future.index[-1] + pd.Timedelta(days=1)
 
@@ -92,11 +103,11 @@ if st.button("🔮 تنفيذ التنبؤ"):
         df_future = pd.concat([df_future, new_row])
 
     # =====================
-    # جدول التنبؤ
+    # جدول النتائج
     # =====================
     future_dates = pd.date_range(
-        start=df_filtered.index[-1] + pd.Timedelta(days=1),
-        periods=7
+        start=start_index + pd.Timedelta(days=1),
+        periods=n_days
     )
 
     forecast_df = pd.DataFrame({
@@ -105,22 +116,24 @@ if st.button("🔮 تنفيذ التنبؤ"):
         "عدد الأكواب": future_predictions
     })
 
-    st.subheader("📅 التنبؤ للأيام القادمة")
+    st.subheader("📅 جدول التنبؤ")
     st.dataframe(forecast_df)
 
     # =====================
     # الرسم
     # =====================
-    st.subheader("📈 الرسم البياني للتنبؤ")
+    st.subheader("📈 الرسم البياني")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    ax.plot(df_filtered.index[-30:],
-            df_filtered['Cups_Count'].iloc[-30:],
+    # بيانات فعلية
+    ax.plot(df_input.index[-30:],
+            df_input['Cups_Count'].iloc[-30:],
             label="القيم الفعلية")
 
-    last_date = df_filtered.index[-1]
-    last_value = df_filtered['Cups_Count'].iloc[-1]
+    # ربط آخر نقطة مع التنبؤ
+    last_date = df_input.index[-1]
+    last_value = df_input['Cups_Count'].iloc[-1]
 
     all_dates = [last_date] + list(forecast_df["التاريخ"])
     all_values = [last_value] + list(forecast_df["عدد الأكواب"])
@@ -130,11 +143,12 @@ if st.button("🔮 تنفيذ التنبؤ"):
             linestyle='--',
             label="التنبؤ")
 
+    # تحسين التاريخ
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     plt.xticks(rotation=45)
 
-    ax.set_title("توقع استهلاك القهوة للأيام القادمة")
+    ax.set_title("توقع استهلاك القهوة")
     ax.legend()
     ax.grid(alpha=0.3)
 
