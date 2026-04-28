@@ -33,7 +33,7 @@ h3, h4 {
 """, unsafe_allow_html=True)
 
 # =====================
-# Title (رجع البوكس البني + أبيض)
+# Title
 # =====================
 st.markdown("""
 <div style="
@@ -147,7 +147,7 @@ if st.button("🔮 تشغيل التنبؤ"):
     table2["Day"] = table2.index.day_name()
 
     # =====================
-    # Layout
+    # Display tables
     # =====================
     col1, col2 = st.columns(2)
 
@@ -160,7 +160,7 @@ if st.button("🔮 تشغيل التنبؤ"):
         st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # Chart (تصغير فقط)
+    # 📈 Chart (SMALL SIZE FIX)
     # =====================
     st.markdown("---")
 
@@ -171,18 +171,37 @@ if st.button("🔮 تشغيل التنبؤ"):
 
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
+
+    # 🔥 تصغير الرسم هنا
     fig, ax = plt.subplots(figsize=(6,2.5))
 
-    ax.plot(hist.index, hist["Cups_Count"],
-          color="#5c4033", linewidth=1.3, label="Historical")
+    ax.plot(
+        hist.index,
+        hist["Cups_Count"],
+        color="#5c4033",
+        linewidth=1.3,
+        label="Historical"
+    )
 
-    ax.plot(fc.index, fc["Cups_Count"],
-          color="#d2691e", linestyle="--", linewidth=1.6, label="Forecast")
+    ax.plot(
+        fc.index,
+        fc["Cups_Count"],
+        color="#d2691e",
+        linestyle="--",
+        linewidth=1.6,
+        label="Forecast"
+    )
 
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    ax.axvline(selected_date, color="gray", linestyle=":")
 
+    ax.set_facecolor("#fff3e6")
+
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.xticks(rotation=45, fontsize=7)
+
     ax.tick_params(axis='y', labelsize=8)
+
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.15)
 
     st.pyplot(fig, use_container_width=True)
