@@ -40,7 +40,15 @@ with col1:
     selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
 
 with col2:
-    n_days = st.number_input("📆 عدد أيام التنبؤ", 1, 30, 5, 1)
+    # 🔥 الرقم يظهر إنجليزي تلقائيًا + تنسيق ثابت
+    n_days = st.number_input(
+        "📆 Number of forecast days",
+        min_value=1,
+        max_value=30,
+        value=5,
+        step=1,
+        format="%d"
+    )
 
 selected_date = pd.to_datetime(selected_date)
 
@@ -51,7 +59,6 @@ st.markdown("---")
 # =====================
 def forecast_engine(df, model, features, end_date):
 
-    df_sim = df.copy()
     current = df.copy()
 
     dates = pd.date_range(
@@ -88,7 +95,6 @@ def forecast_engine(df, model, features, end_date):
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    # 🔥 مهم: لا نزيد يوم بالغلط
     forecast_start = selected_date + pd.Timedelta(days=1)
     forecast_end = selected_date + pd.Timedelta(days=n_days)
 
@@ -112,7 +118,7 @@ if st.button("🔮 تشغيل التنبؤ"):
     }))
 
     # =====================
-    # 📊 الجدول 2 (دقيق بدون زيادة يوم)
+    # 📊 الجدول 2
     # =====================
     table2 = df_sim.loc[forecast_start:forecast_end].copy()
     table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
@@ -129,11 +135,11 @@ if st.button("🔮 تشغيل التنبؤ"):
     }))
 
     # =====================
-    # 📈 الرسم (مقيد فقط على المطلوب)
+    # 📈 الرسم (آخر 50 يوم + forecast)
     # =====================
     st.subheader("📈 الرسم البياني")
 
-    plot_start = df_sim.loc[:selected_date].tail(5).index.min()
+    plot_start = last_real_date - pd.Timedelta(days=50)
     plot_end = forecast_end
 
     plot_df = df_sim.loc[plot_start:plot_end]
@@ -143,16 +149,20 @@ if st.button("🔮 تشغيل التنبؤ"):
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    ax.plot(hist.index,
-            hist["Cups_Count"],
-            color="blue",
-            label="Historical (last 5 days)")
+    ax.plot(
+        hist.index,
+        hist["Cups_Count"],
+        color="blue",
+        label="Historical (Last 50 Days)"
+    )
 
-    ax.plot(fc.index,
-            fc["Cups_Count"],
-            color="orange",
-            linestyle="--",
-            label="Forecast")
+    ax.plot(
+        fc.index,
+        fc["Cups_Count"],
+        color="orange",
+        linestyle="--",
+        label="Forecast"
+    )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
