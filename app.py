@@ -10,28 +10,41 @@ import matplotlib.dates as mdates
 # =====================
 st.set_page_config(page_title="Coffee Forecast", layout="wide")
 
-# 🎨 خلفية عامة بسيطة
+# 🎨 خلفية عامة + خط
 st.markdown("""
 <style>
 body {
-    background-color: #f7f3ef;
+    background-color: #f5f1ec;
+    font-family: Arial;
 }
-.block-container {
-    padding-top: 2rem;
+
+/* تحسين الجداول */
+table {
+    border-radius: 10px;
+}
+
+/* إخفاء الوقت من التاريخ */
+td, th {
+    white-space: nowrap;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================
-# عنوان رئيسي
+# العنوان
 # =====================
 st.markdown("""
-<div style='text-align:center; background-color:#6f4e37; padding:15px; border-radius:12px; color:white;'>
-<h2>☕ نظام التنبؤ الذكي لمبيعات القهوة</h2>
+<div style="
+    background-color:#6f4e37;
+    padding:15px;
+    border-radius:12px;
+    text-align:center;
+    color:white;">
+    <h2>☕ نظام التنبؤ الذكي للقهوة</h2>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # =====================
 # النموذج
@@ -43,7 +56,10 @@ features = joblib.load("features.pkl")
 # البيانات
 # =====================
 df = pd.read_csv("data.csv")
+
+df["Date"] = pd.to_datetime(df["Date"]).dt.date   # 🔥 إزالة 00:00:00
 df["Date"] = pd.to_datetime(df["Date"])
+
 df = df.sort_values("Date")
 df.set_index("Date", inplace=True)
 df = df.asfreq("D").fillna(0)
@@ -73,7 +89,7 @@ selected_date = pd.to_datetime(selected_date)
 st.markdown("---")
 
 # =====================
-# Forecast engine
+# Forecast Engine
 # =====================
 def forecast_engine(df, model, features, end_date):
 
@@ -113,67 +129,73 @@ def forecast_engine(df, model, features, end_date):
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    forecast_start = selected_date + pd.Timedelta(days=1)
     forecast_end = selected_date + pd.Timedelta(days=n_days)
 
     df_sim = forecast_engine(df, model, features, forecast_end)
 
     # =====================
-    # الجداول
+    # 📊 الجدول 1
     # =====================
     table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
-    table2 = df_sim.loc[forecast_start:forecast_end].copy()
-
-    # =====================
-    # تنسيق الجداول
-    # =====================
     table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
     table1["Day"] = table1.index.day_name()
+
     table1 = table1[["Day", "Cups_Count", "Type"]]
 
+    # =====================
+    # 📊 الجدول 2
+    # =====================
+    table2 = df_sim.loc[selected_date:forecast_end].copy()
     table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
     table2["Day"] = table2.index.day_name()
+
     table2 = table2[["Day", "Cups_Count", "Type"]]
 
     # =====================
-    # عرض الجداول جنب بعض
+    # 📊 عرض الجداول بشكل جميل
     # =====================
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("""
-        <div style='background-color:#fff3e6; padding:10px; border-radius:10px;'>
+        <div style='background:#fff3e6; padding:10px; border-radius:10px;'>
         <h4 style='color:#6f4e37;'>📊 آخر 5 أيام</h4>
         </div>
         """, unsafe_allow_html=True)
 
-        st.dataframe(table1.rename(columns={
-            "Day": "اسم اليوم",
-            "Cups_Count": "عدد الأكواب",
-            "Type": "نوع البيانات"
-        }), use_container_width=True)
+        st.dataframe(
+            table1.rename(columns={
+                "Day": "اسم اليوم",
+                "Cups_Count": "عدد الأكواب",
+                "Type": "نوع البيانات"
+            }),
+            use_container_width=True
+        )
 
     with col2:
         st.markdown("""
-        <div style='background-color:#fff3e6; padding:10px; border-radius:10px;'>
+        <div style='background:#fff3e6; padding:10px; border-radius:10px;'>
         <h4 style='color:#6f4e37;'>🔮 جدول التنبؤ</h4>
         </div>
         """, unsafe_allow_html=True)
 
-        st.dataframe(table2.rename(columns={
-            "Day": "اسم اليوم",
-            "Cups_Count": "عدد الأكواب",
-            "Type": "نوع البيانات"
-        }), use_container_width=True)
+        st.dataframe(
+            table2.rename(columns={
+                "Day": "اسم اليوم",
+                "Cups_Count": "عدد الأكواب",
+                "Type": "نوع البيانات"
+            }),
+            use_container_width=True
+        )
 
     # =====================
-    # 📈 الرسم
+    # 📈 الرسم (محسن)
     # =====================
     st.markdown("---")
 
     st.markdown("""
-    <div style='background-color:#6f4e37; padding:10px; border-radius:10px; text-align:center; color:white;'>
-    <h4>📈 منحنى الطلب على القهوة</h4>
+    <div style='text-align:center; color:#6f4e37; font-size:20px;'>
+    📈 منحنى الطلب على القهوة
     </div>
     """, unsafe_allow_html=True)
 
@@ -185,21 +207,30 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[selected_date:]
 
-    fig, ax = plt.subplots(figsize=(12,5))
+    fig, ax = plt.subplots(figsize=(10,4))  # 🔥 أصغر شوي
 
-    # 🎨 ألوان متناسقة مع القهوة
-    ax.plot(hist.index, hist["Cups_Count"],
-            color="#6f4e37",
-            label="Historical (Coffee Trend)")
+    # 🔵 تاريخي
+    ax.plot(
+        hist.index,
+        hist["Cups_Count"],
+        color="#6f4e37",
+        linewidth=2,
+        label="Historical"
+    )
 
-    ax.plot(fc.index, fc["Cups_Count"],
-            color="#d2691e",
-            linestyle="--",
-            label="Forecast (Expected Demand)")
+    # 🟠 تنبؤ (متقطع + عريض)
+    ax.plot(
+        fc.index,
+        fc["Cups_Count"],
+        color="#d2691e",
+        linestyle="--",
+        linewidth=3,
+        label="Forecast"
+    )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
-    ax.set_facecolor("#f7f3ef")
+    ax.set_facecolor("#f5f1ec")
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.xticks(rotation=45)
