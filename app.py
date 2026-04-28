@@ -21,7 +21,7 @@ model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
 
 # =====================
-# تحميل البيانات
+# البيانات
 # =====================
 df = pd.read_csv("data.csv")
 df["Date"] = pd.to_datetime(df["Date"])
@@ -54,10 +54,14 @@ def forecast_engine(df, model, features, end_date):
     df_sim = df.copy()
     current_df = df.copy()
 
-    all_predictions = {}
-    all_dates = pd.date_range(df.index[-1] + pd.Timedelta(days=1), end_date)
+    all_preds = {}
 
-    for d in all_dates:
+    dates = pd.date_range(
+        df.index[-1] + pd.Timedelta(days=1),
+        end_date
+    )
+
+    for d in dates:
 
         row = pd.DataFrame(index=[d])
 
@@ -74,41 +78,36 @@ def forecast_engine(df, model, features, end_date):
         pred = model.predict(row[features])[0]
         pred = max(0, int(round(pred)))
 
-        current_df = pd.concat(
-            [current_df, pd.DataFrame({"Cups_Count": pred}, index=[d])]
-        )
+        current_df = pd.concat([
+            current_df,
+            pd.DataFrame({"Cups_Count": pred}, index=[d])
+        ])
 
-        all_predictions[d] = pred
+        all_preds[d] = pred
 
-    return current_df, all_predictions
+    return current_df
 
 
 # =====================
-# تشغيل التنبؤ
+# تشغيل
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
     final_date = selected_date + pd.Timedelta(days=n_days)
 
-    df_sim, preds = forecast_engine(df, model, features, final_date)
+    df_sim = forecast_engine(df, model, features, final_date)
 
     # =====================
-    # تحديد 5 أيام قبل التاريخ المختار
+    # 🔥 الجدول 1 (تصحيح مهم)
     # =====================
-    df_sim["Type"] = np.where(df_sim.index <= last_real_date, "Historical", "Forecast")
+    past_5 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
 
-    past_5 = df_sim.loc[:selected_date].tail(5).copy()
-
-    # إذا الأيام كانت forecast نوضحها
     past_5["Type"] = np.where(
         past_5.index <= last_real_date,
         "Historical",
         "Forecast"
     )
 
-    # =====================
-    # جدول 1: آخر 5 أيام
-    # =====================
     st.subheader("📊 آخر 5 أيام")
 
     st.dataframe(
@@ -120,11 +119,15 @@ if st.button("🔮 تشغيل التنبؤ"):
     )
 
     # =====================
-    # جدول 2: التنبؤ
+    # 🔥 الجدول 2 (تصحيح النوع)
     # =====================
     forecast_df = df_sim.loc[selected_date:final_date].copy()
 
-    forecast_df["Type"] = "Forecast"
+    forecast_df["Type"] = np.where(
+        forecast_df.index <= last_real_date,
+        "Historical",
+        "Forecast"
+    )
 
     st.subheader("📊 جدول التنبؤ")
 
@@ -137,7 +140,7 @@ if st.button("🔮 تشغيل التنبؤ"):
     )
 
     # =====================
-    # الرسم
+    # 📈 الرسم
     # =====================
     st.subheader("📈 الرسم البياني")
 
@@ -146,23 +149,17 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = df_sim.loc[:selected_date]
     fc = df_sim.loc[selected_date:]
 
-    ax.plot(hist.index,
-            hist["Cups_Count"],
-            label="Historical",
-            color="blue")
+    ax.plot(hist.index, hist["Cups_Count"],
+            label="Historical", color="blue")
 
-    ax.plot(fc.index,
-            fc["Cups_Count"],
-            label="Forecast",
-            color="orange",
-            linestyle="--")
+    ax.plot(fc.index, fc["Cups_Count"],
+            label="Forecast", color="orange", linestyle="--")
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.xticks(rotation=45)
 
-    ax.set_title("Coffee Forecast System")
     ax.legend()
     ax.grid(alpha=0.3)
 
