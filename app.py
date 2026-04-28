@@ -16,7 +16,7 @@ st.markdown("""
     background-color: #efe6dd;
 }
 
-/* الجداول */
+/* الجداول فقط */
 div[data-testid="stDataFrame"] {
     background-color: #f2f2f2;
     border-radius: 12px;
@@ -136,12 +136,15 @@ if st.button("🔮 تشغيل التنبؤ"):
     df_sim = forecast_engine(df, model, features, start_forecast, end_forecast)
 
     # =====================
-    # Tables
+    # 📊 الجدول 1 (FIXED)
     # =====================
-    table1 = df_sim.loc[:selected_date].tail(5).copy()
+    table1 = df_sim.loc[:selected_date - pd.Timedelta(days=1)].tail(5).copy()
     table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
     table1["Day"] = table1.index.day_name()
 
+    # =====================
+    # 📊 الجدول 2
+    # =====================
     table2 = df_sim.loc[start_forecast:end_forecast].copy()
     table2["Type"] = "Forecast"
     table2["Day"] = table2.index.day_name()
@@ -160,10 +163,9 @@ if st.button("🔮 تشغيل التنبؤ"):
         st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # 📈 Chart (SMALL SIZE FIX)
+    # 📈 الرسم (صغير فقط)
     # =====================
     st.markdown("---")
-
     st.markdown("### 📈 الرسم البياني")
 
     plot_start = last_real_date - pd.Timedelta(days=50)
@@ -172,25 +174,21 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    # 🔥 تصغير الرسم هنا
-    fig, ax = plt.subplots(figsize=(6,2.5))
+    # 🔥 تصغير الرسم فقط بدون لمس الجداول
+    fig, ax = plt.subplots(figsize=(5.5,2.3))
 
-    ax.plot(
-        hist.index,
-        hist["Cups_Count"],
-        color="#5c4033",
-        linewidth=1.3,
-        label="Historical"
-    )
+    ax.plot(hist.index,
+            hist["Cups_Count"],
+            color="#5c4033",
+            linewidth=1.3,
+            label="Historical")
 
-    ax.plot(
-        fc.index,
-        fc["Cups_Count"],
-        color="#d2691e",
-        linestyle="--",
-        linewidth=1.6,
-        label="Forecast"
-    )
+    ax.plot(fc.index,
+            fc["Cups_Count"],
+            color="#d2691e",
+            linestyle="--",
+            linewidth=1.6,
+            label="Forecast")
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
@@ -204,4 +202,4 @@ if st.button("🔮 تشغيل التنبؤ"):
     ax.legend(fontsize=8)
     ax.grid(alpha=0.15)
 
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig)
