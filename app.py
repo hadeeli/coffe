@@ -16,40 +16,56 @@ st.markdown("""
     background-color: #efe6dd;
 }
 
-/* الجداول - رمادي خفيف */
+/* الجداول */
 div[data-testid="stDataFrame"] {
     background-color: #f2f2f2;
     border-radius: 12px;
     padding: 8px;
 }
 
-/* إزالة ثقل الخطوط */
-h1, h2, h3 {
-    text-align: center;
+/* خطوط خفيفة */
+h1, h2, h3, h4 {
     font-weight: 500 !important;
-    color: #4b3b2a !important;
+    color: #5a5a5a !important;
+    text-align: center;
 }
 
-/* تحسين عام */
-.block-container {
-    padding-top: 1.5rem;
+/* زر وسط */
+div.stButton > button {
+    display: block;
+    margin: 0 auto;
+    background-color: #6f4e37;
+    color: white;
+    padding: 0.5rem 2rem;
+    border-radius: 10px;
+    font-size: 16px;
+    border: none;
+}
+div.stButton > button:hover {
+    background-color: #5a3f2c;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================
-# Title
+# Title (رمادي)
 # =====================
 st.markdown("""
-<div style="background:#6f4e37;padding:12px;border-radius:12px;color:white;text-align:center;">
-<h2 style="font-weight:500;">☕ نظام التنبؤ الذكي للقهوة</h2>
+<div style="
+    background:#d9d9d9;
+    padding:12px;
+    border-radius:12px;
+    text-align:center;">
+<h2 style="color:#5a5a5a; font-weight:500;">
+☕ Coffee Forecast Dashboard
+</h2>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # =====================
-# Load model
+# Model
 # =====================
 model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
@@ -71,21 +87,16 @@ last_real_date = df.index[-1]
 col1, col2 = st.columns(2)
 
 with col1:
-    selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
+    st.markdown("<h4>📅 تاريخ بداية التنبؤ</h4>", unsafe_allow_html=True)
+    selected_date = st.date_input("")
 
 with col2:
-    n_days = st.number_input(
-        "📆 عدد أيام التنبؤ",
-        min_value=1,
-        max_value=30,
-        value=5,
-        step=1,
-        format="%d"
-    )
+    st.markdown("<h4>📆 عدد أيام التنبؤ</h4>", unsafe_allow_html=True)
+    n_days = st.number_input("", 1, 30, 5, 1, format="%d")
 
 selected_date = pd.to_datetime(selected_date)
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # =====================
 # Forecast engine
@@ -120,9 +131,18 @@ def forecast_engine(df, model, features, start_date, end_date):
     return current
 
 # =====================
+# زر التشغيل (وسط)
+# =====================
+st.markdown("<br>", unsafe_allow_html=True)
+
+col_btn = st.columns([1,2,1])
+with col_btn[1]:
+    run = st.button("Run Forecast")
+
+# =====================
 # Run
 # =====================
-if st.button("🔮 تشغيل التنبؤ"):
+if run:
 
     if selected_date <= last_real_date:
         start_forecast = selected_date + pd.Timedelta(days=1)
@@ -145,38 +165,24 @@ if st.button("🔮 تشغيل التنبؤ"):
     table2["Day"] = table2.index.day_name()
 
     # =====================
-    # Titles (خفيفة + أنحف)
+    # Titles (centered)
     # =====================
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("""
-        <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
-        📊 آخر 5 أيام
-        </h4>
-        """, unsafe_allow_html=True)
-
+        st.markdown("<h4>📊 آخر 5 أيام</h4>", unsafe_allow_html=True)
         st.dataframe(table1[["Day","Cups_Count","Type"]], use_container_width=True)
 
     with col2:
-        st.markdown("""
-        <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
-        🔮 التنبؤ
-        </h4>
-        """, unsafe_allow_html=True)
-
+        st.markdown("<h4>🔮 التنبؤ</h4>", unsafe_allow_html=True)
         st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # Chart (fixed size)
+    # Chart (smaller)
     # =====================
     st.markdown("---")
 
-    st.markdown("""
-    <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
-    📈 الرسم البياني
-    </h4>
-    """, unsafe_allow_html=True)
+    st.markdown("<h4>📈 الرسم البياني</h4>", unsafe_allow_html=True)
 
     plot_start = last_real_date - pd.Timedelta(days=50)
     plot_df = df_sim.loc[plot_start:end_forecast]
@@ -184,34 +190,27 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    # ✔ حجم متوسط (مو صغير ولا كبير)
-    fig, ax = plt.subplots(figsize=(8.5,3.8))
+    fig, ax = plt.subplots(figsize=(7.5,3))  # ✔ أصغر
 
-    ax.plot(
-        hist.index,
-        hist["Cups_Count"],
-        color="#5c4033",
-        linewidth=1.6,
-        label="Historical"
-    )
+    ax.plot(hist.index, hist["Cups_Count"],
+            color="#5c4033",
+            linewidth=1.4,
+            label="Historical")
 
-    ax.plot(
-        fc.index,
-        fc["Cups_Count"],
-        color="#d2691e",
-        linestyle="--",
-        linewidth=2,
-        label="Forecast"
-    )
+    ax.plot(fc.index, fc["Cups_Count"],
+            color="#d2691e",
+            linestyle="--",
+            linewidth=1.8,
+            label="Forecast")
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
     ax.set_facecolor("#fff3e6")
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-    plt.xticks(rotation=45)
+    plt.xticks(rotation=45, fontsize=8)
 
-    ax.legend()
+    ax.legend(fontsize=8)
     ax.grid(alpha=0.15)
 
     st.pyplot(fig)
