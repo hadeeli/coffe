@@ -56,7 +56,7 @@ last_real_date = df.index[-1]
 # =====================
 col1, col2 = st.columns(2)
 with col1:
-    selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
+    selected_date = st.date_input("📅  تاريخ بداية التنبؤ")
 with col2:
     n_days = st.number_input("📆 عدد أيام التنبؤ", min_value=1, max_value=30, value=5, step=1)
 
@@ -97,18 +97,18 @@ if st.button("🔮 تشغيل التنبؤ"):
         res = data_subset.copy()
         res["التاريخ"] = res.index.strftime("%Y-%m-%d")
         res["اليوم"] = res.index.day_name()
-        res["الحالة"] = np.where(res.index <= last_real_date, "Actual", "Forecast")
-        return res[["التاريخ", "اليوم", "Cups_Count", "الحالة"]]
+        res["نوع البيانات"] = np.where(res.index <= last_real_date, "Actual", "Forecast")
+        return res[["التاريخ", "اليوم", "Cups_Count", "نوع البيانات"]]
 
     t1 = clean_table(df_sim.loc[:selected_date].iloc[:-1].tail(5))
     t2 = clean_table(df_sim.loc[selected_date:forecast_end])
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("<h4 style='color:#6f4e37;'>📊 سجل المبيعات الأخيرة</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color:#6f4e37;'>📊  المبيعات اخر 5 أيام </h4>", unsafe_allow_html=True)
         st.dataframe(t1.rename(columns={"Cups_Count":"الكمية (كوب)"}), use_container_width=True, hide_index=True)
     with c2:
-        st.markdown("<h4 style='color:#6f4e37;'>🔮 التوقعات الذكية للطلب</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color:#6f4e37;'>🔮 جدول التنبؤ</h4>", unsafe_allow_html=True)
         st.dataframe(t2.rename(columns={"Cups_Count":"الكمية (كوب)"}), use_container_width=True, hide_index=True)
 
     # =====================
