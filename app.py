@@ -52,9 +52,12 @@ st.markdown("---")
 def forecast_engine(df, model, features, end_date):
 
     df_sim = df.copy()
-    current_df = df.copy()
+    current = df.copy()
 
-    dates = pd.date_range(df.index[-1] + pd.Timedelta(days=1), end_date)
+    dates = pd.date_range(
+        df.index[-1] + pd.Timedelta(days=1),
+        end_date
+    )
 
     for d in dates:
 
@@ -64,33 +67,35 @@ def forecast_engine(df, model, features, end_date):
         row["month"] = d.month
         row["is_weekend"] = 1 if d.dayofweek >= 5 else 0
 
-        row["lag_1"] = current_df["Cups_Count"].iloc[-1]
-        row["lag_7"] = current_df["Cups_Count"].iloc[-7]
+        row["lag_1"] = current["Cups_Count"].iloc[-1]
+        row["lag_7"] = current["Cups_Count"].iloc[-7]
 
-        row["rolling_mean_7"] = current_df["Cups_Count"].iloc[-7:].mean()
-        row["rolling_std_7"] = current_df["Cups_Count"].iloc[-7:].std()
+        row["rolling_mean_7"] = current["Cups_Count"].iloc[-7:].mean()
+        row["rolling_std_7"] = current["Cups_Count"].iloc[-7:].std()
 
         pred = model.predict(row[features])[0]
         pred = max(0, int(round(pred)))
 
-        current_df = pd.concat([
-            current_df,
+        current = pd.concat([
+            current,
             pd.DataFrame({"Cups_Count": pred}, index=[d])
         ])
 
-    return current_df
+    return current
 
 # =====================
 # تشغيل
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    final_date = selected_date + pd.Timedelta(days=n_days)
+    # 🔥 مهم: لا نزيد يوم بالغلط
+    forecast_start = selected_date + pd.Timedelta(days=1)
+    forecast_end = selected_date + pd.Timedelta(days=n_days)
 
-    df_sim = forecast_engine(df, model, features, final_date)
+    df_sim = forecast_engine(df, model, features, forecast_end)
 
     # =====================
-    # الجدول الأول (محدد الأعمدة)
+    # 📊 الجدول 1 (5 أيام قبل فقط)
     # =====================
     table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
     table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
@@ -98,18 +103,6 @@ if st.button("🔮 تشغيل التنبؤ"):
 
     table1 = table1[["Day", "Cups_Count", "Type"]]
 
-    # =====================
-    # الجدول الثاني
-    # =====================
-    table2 = df_sim.loc[selected_date:final_date].copy()
-    table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
-    table2["Day"] = table2.index.day_name()
-
-    table2 = table2[["Day", "Cups_Count", "Type"]]
-
-    # =====================
-    # عرض الجداول
-    # =====================
     st.subheader("📊 آخر 5 أيام")
 
     st.dataframe(table1.rename(columns={
@@ -117,6 +110,15 @@ if st.button("🔮 تشغيل التنبؤ"):
         "Cups_Count": "عدد الأكواب",
         "Type": "نوع البيانات"
     }))
+
+    # =====================
+    # 📊 الجدول 2 (دقيق بدون زيادة يوم)
+    # =====================
+    table2 = df_sim.loc[forecast_start:forecast_end].copy()
+    table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
+    table2["Day"] = table2.index.day_name()
+
+    table2 = table2[["Day", "Cups_Count", "Type"]]
 
     st.subheader("📊 جدول التنبؤ")
 
@@ -127,26 +129,25 @@ if st.button("🔮 تشغيل التنبؤ"):
     }))
 
     # =====================
-    # 📈 الرسم (متصل + ألوان فقط)
+    # 📈 الرسم (مقيد فقط على المطلوب)
     # =====================
     st.subheader("📈 الرسم البياني")
 
+    plot_start = df_sim.loc[:selected_date].tail(5).index.min()
+    plot_end = forecast_end
+
+    plot_df = df_sim.loc[plot_start:plot_end]
+
+    hist = plot_df.loc[:selected_date]
+    fc = plot_df.loc[selected_date:]
+
     fig, ax = plt.subplots(figsize=(12,5))
 
-    # كامل السلسلة حتى النهاية
-    full = df_sim.loc[:final_date].copy()
-
-    # split
-    hist = full.loc[:selected_date]
-    fc = full.loc[selected_date:]
-
-    # 🔵 خط واحد متصل (قبل التنبؤ)
     ax.plot(hist.index,
             hist["Cups_Count"],
             color="blue",
-            label="Historical")
+            label="Historical (last 5 days)")
 
-    # 🟠 خط متصل مكمل (forecast)
     ax.plot(fc.index,
             fc["Cups_Count"],
             color="orange",
