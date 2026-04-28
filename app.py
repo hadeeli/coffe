@@ -171,34 +171,18 @@ if st.button("🔮 تشغيل التنبؤ"):
 
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
+    fig, ax = plt.subplots(figsize=(6,2.5))
 
- fig, ax = plt.subplots(figsize=(5.5,2.3)) 
+ax.plot(hist.index, hist["Cups_Count"],
+        color="#5c4033", linewidth=1.3, label="Historical")
 
-
-
-    ax.plot(hist.index,
-            hist["Cups_Count"],
-            color="#5c4033",
-            linewidth=1.4,
-            label="Historical")
-
-    ax.plot(fc.index,
-            fc["Cups_Count"],
-            color="#d2691e",
-            linestyle="--",
-            linewidth=1.8,
-            label="Forecast")
-
-    ax.axvline(selected_date, color="gray", linestyle=":")
-
-    ax.set_facecolor("#fff3e6")
+ax.plot(fc.index, fc["Cups_Count"],
+        color="#d2691e", linestyle="--", linewidth=1.6, label="Forecast")
 
 ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-   plt.xticks(rotation=45, fontsize=7)
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+
+plt.xticks(rotation=45, fontsize=7)
 ax.tick_params(axis='y', labelsize=8)
 
-    ax.legend(fontsize=8)
-    ax.grid(alpha=0.15)
-
-    st.pyplot(fig, use_container_width=True)
+st.pyplot(fig, use_container_width=True)
