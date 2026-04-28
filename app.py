@@ -24,7 +24,7 @@ div[data-testid="stDataFrame"] {
 }
 
 /* العناوين */
-h1, h2, h3, h4 {
+h3, h4 {
     font-weight: 500 !important;
     color: #5a5a5a !important;
     text-align: center;
@@ -33,12 +33,19 @@ h1, h2, h3, h4 {
 """, unsafe_allow_html=True)
 
 # =====================
-# Title (معدل: بدون بوكس + رمادي)
+# Title (رجع البوكس البني + أبيض)
 # =====================
 st.markdown("""
-<h2 style="color:#5a5a5a; text-align:center; font-weight:500;">
+<div style="
+    background:#6f4e37;
+    padding:12px;
+    border-radius:12px;
+    text-align:center;
+    color:white;">
+<h2 style="color:white; font-weight:500;">
 ☕ نظام التنبؤ الذكي للقهوة
 </h2>
+</div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
@@ -66,7 +73,7 @@ last_real_date = df.index[-1]
 col1, col2 = st.columns(2)
 
 with col1:
-    selected_date = st.date_input("📅  تاريخ بداية التنبؤ")
+    selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
 
 with col2:
     n_days = st.number_input(
@@ -117,7 +124,7 @@ def forecast_engine(df, model, features, start_date, end_date):
 # =====================
 # Run
 # =====================
-if st.button("🔮 Run Forcast "):
+if st.button("🔮 تشغيل التنبؤ"):
 
     if selected_date <= last_real_date:
         start_forecast = selected_date + pd.Timedelta(days=1)
@@ -165,7 +172,6 @@ if st.button("🔮 Run Forcast "):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    # ✔ تصغير الرسم فقط
     fig, ax = plt.subplots(figsize=(7,3))
 
     ax.plot(hist.index,
