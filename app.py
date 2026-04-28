@@ -172,7 +172,7 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
- fig, ax = plt.subplots(figsize=(5.5,2.3))  # صغير جدًا
+ fig, ax = plt.subplots(figsize=(5.5,2.3)) 
 
 
 
