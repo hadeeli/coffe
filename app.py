@@ -172,7 +172,9 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    fig, ax = plt.subplots(figsize=(7,3))
+ fig, ax = plt.subplots(figsize=(5.5,2.3))  # صغير جدًا
+
+
 
     ax.plot(hist.index,
             hist["Cups_Count"],
@@ -191,10 +193,12 @@ if st.button("🔮 تشغيل التنبؤ"):
 
     ax.set_facecolor("#fff3e6")
 
+ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
-    plt.xticks(rotation=45, fontsize=8)
+   plt.xticks(rotation=45, fontsize=7)
+ax.tick_params(axis='y', labelsize=8)
 
     ax.legend(fontsize=8)
     ax.grid(alpha=0.15)
 
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=True)
