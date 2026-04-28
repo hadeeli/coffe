@@ -173,16 +173,16 @@ if st.button("🔮 تشغيل التنبؤ"):
     fc = plot_df.loc[start_forecast:end_forecast]
     fig, ax = plt.subplots(figsize=(6,2.5))
 
-ax.plot(hist.index, hist["Cups_Count"],
-        color="#5c4033", linewidth=1.3, label="Historical")
+    ax.plot(hist.index, hist["Cups_Count"],
+          color="#5c4033", linewidth=1.3, label="Historical")
 
-ax.plot(fc.index, fc["Cups_Count"],
-        color="#d2691e", linestyle="--", linewidth=1.6, label="Forecast")
+    ax.plot(fc.index, fc["Cups_Count"],
+          color="#d2691e", linestyle="--", linewidth=1.6, label="Forecast")
 
-ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
-ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
-plt.xticks(rotation=45, fontsize=7)
-ax.tick_params(axis='y', labelsize=8)
+    plt.xticks(rotation=45, fontsize=7)
+    ax.tick_params(axis='y', labelsize=8)
 
-st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, use_container_width=True)
