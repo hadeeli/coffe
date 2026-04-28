@@ -10,17 +10,10 @@ import matplotlib.dates as mdates
 # =====================
 st.set_page_config(page_title="Coffee Forecast", layout="wide")
 
-# 🔥 مهم: تقليل عرض الكونتينر عشان الرسم يصغر فعليًا
 st.markdown("""
 <style>
 .stApp {
     background-color: #efe6dd;
-}
-
-/* تقليل عرض الصفحة (حل مشكلة الرسم) */
-.block-container {
-    max-width: 900px;
-    padding-top: 2rem;
 }
 
 /* الجداول */
@@ -167,9 +160,10 @@ if st.button("🔮 تشغيل التنبؤ"):
         st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # 📈 Chart (FIXED SIZE)
+    # 📈 Chart (SMALL SIZE FIX)
     # =====================
     st.markdown("---")
+
     st.markdown("### 📈 الرسم البياني")
 
     plot_start = last_real_date - pd.Timedelta(days=50)
@@ -178,21 +172,25 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    # 🔥 الحجم الآن يتغير فعليًا
-    fig, ax = plt.subplots(figsize=(5,2))   # صغير وواضح
+    # 🔥 تصغير الرسم هنا
+    fig, ax = plt.subplots(figsize=(6,2.5))
 
-    ax.plot(hist.index,
-            hist["Cups_Count"],
-            color="#5c4033",
-            linewidth=1.3,
-            label="Historical")
+    ax.plot(
+        hist.index,
+        hist["Cups_Count"],
+        color="#5c4033",
+        linewidth=1.3,
+        label="Historical"
+    )
 
-    ax.plot(fc.index,
-            fc["Cups_Count"],
-            color="#d2691e",
-            linestyle="--",
-            linewidth=1.6,
-            label="Forecast")
+    ax.plot(
+        fc.index,
+        fc["Cups_Count"],
+        color="#d2691e",
+        linestyle="--",
+        linewidth=1.6,
+        label="Forecast"
+    )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
@@ -206,4 +204,4 @@ if st.button("🔮 تشغيل التنبؤ"):
     ax.legend(fontsize=8)
     ax.grid(alpha=0.15)
 
-    st.pyplot(fig)
+    st.pyplot(fig, use_container_width=True)
