@@ -39,13 +39,14 @@ st.markdown("""
 st.markdown("---")
 
 # =====================
-# النموذج
+# تحميل النموذج والميزات
 # =====================
+# ملاحظة: تأكدي أن الملفات موجودة في نفس المجلد
 model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
 
 # =====================
-# البيانات
+# تحميل وتحضير البيانات
 # =====================
 df = pd.read_csv("data.csv")
 df["Date"] = pd.to_datetime(df["Date"])
@@ -56,7 +57,7 @@ df = df.asfreq("D").fillna(0)
 last_real_date = df.index[-1]
 
 # =====================
-# Inputs
+# مدخلات المستخدم (Inputs)
 # =====================
 col1, col2 = st.columns(2)
 
@@ -78,27 +79,25 @@ selected_date = pd.to_datetime(selected_date)
 st.markdown("---")
 
 # =====================
-# Forecast Engine
+# محرك التنبؤ (Forecast Engine)
 # =====================
 def forecast_engine(df, model, features, end_date):
-
     current = df.copy()
-
+    
+    # تحديد نطاق التواريخ المطلوبة للتنبؤ
     dates = pd.date_range(
         df.index[-1] + pd.Timedelta(days=1),
         end_date
     )
 
     for d in dates:
-
         row = pd.DataFrame(index=[d])
-
         row["day_of_week"] = d.dayofweek
         row["month"] = d.month
         row["is_weekend"] = 1 if d.dayofweek >= 5 else 0
 
         row["lag_1"] = current["Cups_Count"].iloc[-1]
-        row["lag_7"] = current["Cups_Count"].iloc[-7]
+        row["lag_7"] = current["Cups_Count"].iloc[-7] if len(current) >= 7 else current["Cups_Count"].iloc[-1]
 
         row["rolling_mean_7"] = current["Cups_Count"].iloc[-7:].mean()
         row["rolling_std_7"] = current["Cups_Count"].iloc[-7:].std()
@@ -114,107 +113,106 @@ def forecast_engine(df, model, features, end_date):
     return current
 
 # =====================
-# تشغيل
+# تشغيل التنبؤ عند الضغط على الزر
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    # ✅ FIX: عدد الأيام
+    # حساب تاريخ النهاية بناءً على اختيار المستخدم
     forecast_end = selected_date + pd.Timedelta(days=n_days - 1)
 
+    # تشغيل المحرك
     df_sim = forecast_engine(df, model, features, forecast_end)
 
-    # =====================
-    # 📊 الجدول 1
-    # =====================
+    # ---------------------
+    # 📊 تجهيز الجدول 1 (آخر 5 أيام)
+    # ---------------------
     table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
     table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
     table1["Day"] = table1.index.day_name()
+    
+    # ✅ حذف الوقت: تحويل التاريخ لنص بدون أصفار الوقت
+    table1["Date_Col"] = table1.index.strftime("%Y-%m-%d")
+    table1 = table1[["Date_Col", "Day", "Cups_Count", "Type"]]
 
-    # ✅ حذف الوقت
-    table1["Date"] = table1.index.strftime("%Y-%m-%d")
-
-    table1 = table1[["Date", "Day", "Cups_Count", "Type"]]
-
-    # =====================
-    # 📊 الجدول 2
-    # =====================
+    # ---------------------
+    # 📊 تجهيز الجدول 2 (جدول التنبؤ)
+    # ---------------------
     table2 = df_sim.loc[selected_date:forecast_end].copy()
     table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
     table2["Day"] = table2.index.day_name()
 
-    # ✅ حذف الوقت
-    table2["Date"] = table2.index.strftime("%Y-%m-%d")
-
-    table2 = table2[["Date", "Day", "Cups_Count", "Type"]]
+    # ✅ حذف الوقت: تحويل التاريخ لنص بدون أصفار الوقت
+    table2["Date_Col"] = table2.index.strftime("%Y-%m-%d")
+    table2 = table2[["Date_Col", "Day", "Cups_Count", "Type"]]
 
     # =====================
-    # عرض الجداول
+    # عرض الجداول في أعمدة
     # =====================
-    col1, col2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col1:
+    with c1:
         st.markdown("""
-        <div style='background:#fff3e6; padding:10px; border-radius:10px;'>
-        <h4 style='color:#6f4e37;'>📊 آخر 5 أيام</h4>
+        <div style='background:#fff3e6; padding:10px; border-radius:10px; margin-bottom:10px;'>
+        <h4 style='color:#6f4e37; margin:0;'>📊 آخر 5 أيام</h4>
         </div>
         """, unsafe_allow_html=True)
 
         st.dataframe(
             table1.rename(columns={
-                "Date": "التاريخ",
+                "Date_Col": "التاريخ",
                 "Day": "اسم اليوم",
                 "Cups_Count": "عدد الأكواب",
                 "Type": "نوع البيانات"
             }),
-            use_container_width=True
+            use_container_width=True,
+            hide_index=True # إخفاء الفهرس الجانبي
         )
 
-    with col2:
+    with c2:
         st.markdown("""
-        <div style='background:#fff3e6; padding:10px; border-radius:10px;'>
-        <h4 style='color:#6f4e37;'>🔮 جدول التنبؤ</h4>
+        <div style='background:#fff3e6; padding:10px; border-radius:10px; margin-bottom:10px;'>
+        <h4 style='color:#6f4e37; margin:0;'>🔮 جدول التنبؤ</h4>
         </div>
         """, unsafe_allow_html=True)
 
         st.dataframe(
             table2.rename(columns={
-                "Date": "التاريخ",
+                "Date_Col": "التاريخ",
                 "Day": "اسم اليوم",
                 "Cups_Count": "عدد الأكواب",
                 "Type": "نوع البيانات"
             }),
-            use_container_width=True
+            use_container_width=True,
+            hide_index=True # إخفاء الفهرس الجانبي
         )
 
     # =====================
-    # 📈 الرسم
+    # 📈 الرسم البياني
     # =====================
     st.markdown("---")
+    st.markdown("<h3 style='text-align:center; color:#6f4e37;'>📈 منحنى الطلب على القهوة</h3>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <div style='text-align:center; color:#6f4e37; font-size:20px;'>
-    📈 منحنى الطلب على القهوة
-    </div>
-    """, unsafe_allow_html=True)
-
+    # نحدد نطاق الرسم ليظهر آخر 50 يوم + التنبؤ
     plot_start = last_real_date - pd.Timedelta(days=50)
     plot_df = df_sim.loc[plot_start:forecast_end]
 
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[selected_date:]
 
-    fig, ax = plt.subplots(figsize=(10,4))
-
+    fig, ax = plt.subplots(figsize=(10, 4))
+    
+    # رسم البيانات التاريخية والتوقعات
     ax.plot(hist.index, hist["Cups_Count"], color="#6f4e37", linewidth=2, label="Historical")
     ax.plot(fc.index, fc["Cups_Count"], color="#d2691e", linestyle="--", linewidth=3, label="Forecast")
 
-    ax.axvline(selected_date, color="gray", linestyle=":")
+    # خط عمودي يفصل بين الماضي والمستقبل
+    ax.axvline(selected_date, color="gray", linestyle=":", alpha=0.5)
 
+    # تحسين مظهر الرسم
     ax.set_facecolor("#f5f1ec")
-
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.xticks(rotation=45)
-
+    ax.set_ylabel("Number of Cups")
     ax.legend()
     ax.grid(alpha=0.2)
 
