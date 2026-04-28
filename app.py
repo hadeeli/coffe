@@ -40,7 +40,13 @@ with col1:
     selected_date = st.date_input("📅 اختر تاريخ بداية التنبؤ")
 
 with col2:
-    n_days = st.number_input("📆 عدد أيام التنبؤ", 1, 30, 5, 1)
+    n_days = st.number_input(
+        "📆 Number of forecast days",
+        min_value=1,
+        max_value=30,
+        value=5,
+        step=1
+    )
 
 selected_date = pd.to_datetime(selected_date)
 
@@ -51,7 +57,6 @@ st.markdown("---")
 # =====================
 def forecast_engine(df, model, features, end_date):
 
-    df_sim = df.copy()
     current = df.copy()
 
     dates = pd.date_range(
@@ -86,73 +91,41 @@ def forecast_engine(df, model, features, end_date):
 # =====================
 # تشغيل
 # =====================
-if st.button("🔮 تشغيل التنبؤ"):
+if st.button("🔮 Run Forecast"):
 
-    # 🔥 مهم: لا نزيد يوم بالغلط
-    forecast_start = selected_date + pd.Timedelta(days=1)
     forecast_end = selected_date + pd.Timedelta(days=n_days)
 
     df_sim = forecast_engine(df, model, features, forecast_end)
 
     # =====================
-    # 📊 الجدول 1 (5 أيام قبل فقط)
+    # 📈 الرسم (آخر 30 يوم + forecast)
     # =====================
-    table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
-    table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
-    table1["Day"] = table1.index.day_name()
 
-    table1 = table1[["Day", "Cups_Count", "Type"]]
+    plot_start = last_real_date - pd.Timedelta(days=30)
 
-    st.subheader("📊 آخر 5 أيام")
-
-    st.dataframe(table1.rename(columns={
-        "Day": "اسم اليوم",
-        "Cups_Count": "عدد الأكواب",
-        "Type": "نوع البيانات"
-    }))
-
-    # =====================
-    # 📊 الجدول 2 (دقيق بدون زيادة يوم)
-    # =====================
-    table2 = df_sim.loc[forecast_start:forecast_end].copy()
-    table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
-    table2["Day"] = table2.index.day_name()
-
-    table2 = table2[["Day", "Cups_Count", "Type"]]
-
-    st.subheader("📊 جدول التنبؤ")
-
-    st.dataframe(table2.rename(columns={
-        "Day": "اسم اليوم",
-        "Cups_Count": "عدد الأكواب",
-        "Type": "نوع البيانات"
-    }))
-
-    # =====================
-    # 📈 الرسم (مقيد فقط على المطلوب)
-    # =====================
-    st.subheader("📈 الرسم البياني")
-
-    plot_start = df_sim.loc[:selected_date].tail(5).index.min()
-    plot_end = forecast_end
-
-    plot_df = df_sim.loc[plot_start:plot_end]
+    plot_df = df_sim.loc[plot_start:forecast_end]
 
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[selected_date:]
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    ax.plot(hist.index,
-            hist["Cups_Count"],
-            color="blue",
-            label="Historical (last 5 days)")
+    # 🔵 آخر 30 يوم
+    ax.plot(
+        hist.index,
+        hist["Cups_Count"],
+        color="blue",
+        label="Last 30 Days (Historical)"
+    )
 
-    ax.plot(fc.index,
-            fc["Cups_Count"],
-            color="orange",
-            linestyle="--",
-            label="Forecast")
+    # 🟠 Forecast
+    ax.plot(
+        fc.index,
+        fc["Cups_Count"],
+        color="orange",
+        linestyle="--",
+        label="Forecast"
+    )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
