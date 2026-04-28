@@ -6,55 +6,54 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 # =====================
-# إعداد الصفحة
+# Page setup
 # =====================
 st.set_page_config(page_title="Coffee Forecast", layout="wide")
 
-# 🎨 خلفية كاملة للصفحة
 st.markdown("""
 <style>
 .stApp {
-    background-color: #f3ede7;
+    background-color: #efe6dd;
 }
 
-/* تحسين الجداول */
+/* الجداول */
 div[data-testid="stDataFrame"] {
-    background-color: white;
-    border-radius: 10px;
-    padding: 10px;
+    background-color: #fff8f3;
+    border-radius: 12px;
+    padding: 8px;
 }
 
-/* الخط العام */
-html, body, [class*="css"] {
-    font-family: Arial;
+/* النص */
+h1, h2, h3 {
+    text-align: center;
+}
+
+/* إزالة أبيض */
+.block-container {
+    padding-top: 2rem;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================
-# العنوان
+# Title
 # =====================
 st.markdown("""
-<div style="
-    background-color:#6f4e37;
-    padding:15px;
-    border-radius:12px;
-    text-align:center;
-    color:white;">
-    <h2>☕ نظام التنبؤ الذكي للقهوة</h2>
+<div style="background:#6f4e37;padding:12px;border-radius:12px;color:white;text-align:center;">
+<h2>☕ نظام التنبؤ الذكي للقهوة</h2>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # =====================
-# النموذج
+# Load model
 # =====================
 model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
 
 # =====================
-# البيانات
+# Data
 # =====================
 df = pd.read_csv("data.csv")
 df["Date"] = pd.to_datetime(df["Date"])
@@ -84,19 +83,14 @@ with col2:
 
 selected_date = pd.to_datetime(selected_date)
 
-st.markdown("---")
-
 # =====================
-# Forecast Engine (FIXED)
+# Forecast engine FIXED
 # =====================
-def forecast_engine(df, model, features, end_date):
+def forecast_engine(df, model, features, start_date, end_date):
 
     current = df.copy()
 
-    dates = pd.date_range(
-        start=df.index[-1] + pd.Timedelta(days=1),
-        end=end_date  # ✔ هنا ما فيه زيادة يوم
-    )
+    dates = pd.date_range(start=start_date, end=end_date)
 
     for d in dates:
 
@@ -123,87 +117,86 @@ def forecast_engine(df, model, features, end_date):
     return current
 
 # =====================
-# تشغيل
+# Run
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    forecast_end = selected_date + pd.Timedelta(days=n_days)
+    # ✔ تحديد البداية بشكل صحيح
+    if selected_date <= last_real_date:
+        start_forecast = selected_date + pd.Timedelta(days=1)
+    else:
+        start_forecast = last_real_date + pd.Timedelta(days=1)
 
-    df_sim = forecast_engine(df, model, features, forecast_end)
+    end_forecast = start_forecast + pd.Timedelta(days=n_days - 1)
+
+    df_sim = forecast_engine(df, model, features, start_forecast, end_forecast)
 
     # =====================
-    # 📊 الجداول
+    # Tables
     # =====================
-    table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
+    table1 = df_sim.loc[:selected_date].tail(5).copy()
     table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
     table1["Day"] = table1.index.day_name()
 
-    table2 = df_sim.loc[selected_date:forecast_end].copy()
-    table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
+    table2 = df_sim.loc[start_forecast:end_forecast].copy()
+    table2["Type"] = "Forecast"
     table2["Day"] = table2.index.day_name()
 
     # =====================
-    # عرض الجداول
+    # Layout tables
     # =====================
     col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("### 📊 آخر 5 أيام")
-        st.dataframe(table1[["Day","Cups_Count","Type"]].rename(columns={
-            "Day":"اسم اليوم",
-            "Cups_Count":"عدد الأكواب",
-            "Type":"نوع البيانات"
-        }), use_container_width=True)
+        st.dataframe(table1[["Day","Cups_Count","Type"]], use_container_width=True)
 
     with col2:
-        st.markdown("### 🔮 جدول التنبؤ")
-        st.dataframe(table2[["Day","Cups_Count","Type"]].rename(columns={
-            "Day":"اسم اليوم",
-            "Cups_Count":"عدد الأكواب",
-            "Type":"نوع البيانات"
-        }), use_container_width=True)
+        st.markdown("### 🔮 التنبؤ")
+        st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # 📈 الرسم (محسن)
+    # Chart
     # =====================
     st.markdown("---")
+
     st.markdown("### 📈 منحنى الطلب على القهوة")
 
     plot_start = last_real_date - pd.Timedelta(days=50)
-    plot_df = df_sim.loc[plot_start:forecast_end]
+    plot_df = df_sim.loc[plot_start:end_forecast]
 
     hist = plot_df.loc[:selected_date]
-    fc = plot_df.loc[selected_date:]
+    fc = plot_df.loc[start_forecast:end_forecast]
 
-    fig, ax = plt.subplots(figsize=(9,3.5))  # ✔ أصغر
+    fig, ax = plt.subplots(figsize=(8,3))  # ✔ أصغر
 
-    # 🔵 تاريخي
+    # 🔵 تاريخي (أنحف)
     ax.plot(
         hist.index,
         hist["Cups_Count"],
-        color="#6f4e37",
-        linewidth=2,
+        color="#5c4033",
+        linewidth=1.5,
         label="Historical"
     )
 
-    # 🟠 تنبؤ (أنحف + متقطع)
+    # 🟠 Forecast (متقطع)
     ax.plot(
         fc.index,
         fc["Cups_Count"],
         color="#d2691e",
         linestyle="--",
-        linewidth=2,  # ✔ تقليل العرض
+        linewidth=2,
         label="Forecast"
     )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
-    ax.set_facecolor("#f3ede7")
+    ax.set_facecolor("#fff3e6")
 
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
     plt.xticks(rotation=45)
 
     ax.legend()
-    ax.grid(alpha=0.2)
+    ax.grid(alpha=0.15)
 
     st.pyplot(fig)
