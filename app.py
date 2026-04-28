@@ -15,7 +15,7 @@ st.markdown("<h1 style='text-align:center;'>☕ نظام التنبؤ الذكي
 st.markdown("---")
 
 # =====================
-# تحميل النموذج
+# النموذج
 # =====================
 model = joblib.load("xgb_model.pkl")
 features = joblib.load("features.pkl")
@@ -47,14 +47,12 @@ selected_date = pd.to_datetime(selected_date)
 st.markdown("---")
 
 # =====================
-# Forecast Engine
+# Forecast engine
 # =====================
 def forecast_engine(df, model, features, end_date):
 
     df_sim = df.copy()
     current_df = df.copy()
-
-    all_preds = {}
 
     dates = pd.date_range(
         df.index[-1] + pd.Timedelta(days=1),
@@ -83,10 +81,7 @@ def forecast_engine(df, model, features, end_date):
             pd.DataFrame({"Cups_Count": pred}, index=[d])
         ])
 
-        all_preds[d] = pred
-
     return current_df
-
 
 # =====================
 # تشغيل
@@ -98,62 +93,49 @@ if st.button("🔮 تشغيل التنبؤ"):
     df_sim = forecast_engine(df, model, features, final_date)
 
     # =====================
-    # 🔥 الجدول 1 (تصحيح مهم)
+    # الجدول الأول (5 أيام قبل)
     # =====================
-    past_5 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
+    table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
 
-    past_5["Type"] = np.where(
-        past_5.index <= last_real_date,
-        "Historical",
-        "Forecast"
-    )
+    # =====================
+    # الجدول الثاني (التنبؤ)
+    # =====================
+    table2 = df_sim.loc[selected_date:final_date].copy()
 
+    # =====================
+    # عرض الجداول
+    # =====================
     st.subheader("📊 آخر 5 أيام")
-
-    st.dataframe(
-        past_5[["Cups_Count", "Type"]]
-        .rename(columns={
-            "Cups_Count": "عدد الأكواب",
-            "Type": "نوع البيانات"
-        })
-    )
-
-    # =====================
-    # 🔥 الجدول 2 (تصحيح النوع)
-    # =====================
-    forecast_df = df_sim.loc[selected_date:final_date].copy()
-
-    forecast_df["Type"] = np.where(
-        forecast_df.index <= last_real_date,
-        "Historical",
-        "Forecast"
-    )
+    st.dataframe(table1.rename(columns={"Cups_Count": "عدد الأكواب"}))
 
     st.subheader("📊 جدول التنبؤ")
-
-    st.dataframe(
-        forecast_df[["Cups_Count", "Type"]]
-        .rename(columns={
-            "Cups_Count": "عدد الأكواب",
-            "Type": "نوع البيانات"
-        })
-    )
+    st.dataframe(table2.rename(columns={"Cups_Count": "عدد الأكواب"}))
 
     # =====================
-    # 📈 الرسم
+    # 📈 الرسم الجديد (المطلوب)
     # =====================
     st.subheader("📈 الرسم البياني")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    hist = df_sim.loc[:selected_date]
-    fc = df_sim.loc[selected_date:]
+    # 🔵 الجدول الأول
+    ax.plot(
+        table1.index,
+        table1["Cups_Count"],
+        color="blue",
+        marker="o",
+        label="Table 1 (Historical 5 days)"
+    )
 
-    ax.plot(hist.index, hist["Cups_Count"],
-            label="Historical", color="blue")
-
-    ax.plot(fc.index, fc["Cups_Count"],
-            label="Forecast", color="orange", linestyle="--")
+    # 🟠 الجدول الثاني
+    ax.plot(
+        table2.index,
+        table2["Cups_Count"],
+        color="orange",
+        marker="o",
+        linestyle="--",
+        label="Table 2 (Forecast)"
+    )
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
