@@ -54,10 +54,7 @@ def forecast_engine(df, model, features, end_date):
     df_sim = df.copy()
     current_df = df.copy()
 
-    dates = pd.date_range(
-        df.index[-1] + pd.Timedelta(days=1),
-        end_date
-    )
+    dates = pd.date_range(df.index[-1] + pd.Timedelta(days=1), end_date)
 
     for d in dates:
 
@@ -93,49 +90,68 @@ if st.button("🔮 تشغيل التنبؤ"):
     df_sim = forecast_engine(df, model, features, final_date)
 
     # =====================
-    # الجدول الأول (5 أيام قبل)
+    # الجدول الأول (محدد الأعمدة)
     # =====================
     table1 = df_sim.loc[:selected_date].iloc[:-1].tail(5).copy()
+    table1["Type"] = np.where(table1.index <= last_real_date, "Historical", "Forecast")
+    table1["Day"] = table1.index.day_name()
+
+    table1 = table1[["Day", "Cups_Count", "Type"]]
 
     # =====================
-    # الجدول الثاني (التنبؤ)
+    # الجدول الثاني
     # =====================
     table2 = df_sim.loc[selected_date:final_date].copy()
+    table2["Type"] = np.where(table2.index <= last_real_date, "Historical", "Forecast")
+    table2["Day"] = table2.index.day_name()
+
+    table2 = table2[["Day", "Cups_Count", "Type"]]
 
     # =====================
     # عرض الجداول
     # =====================
     st.subheader("📊 آخر 5 أيام")
-    st.dataframe(table1.rename(columns={"Cups_Count": "عدد الأكواب"}))
+
+    st.dataframe(table1.rename(columns={
+        "Day": "اسم اليوم",
+        "Cups_Count": "عدد الأكواب",
+        "Type": "نوع البيانات"
+    }))
 
     st.subheader("📊 جدول التنبؤ")
-    st.dataframe(table2.rename(columns={"Cups_Count": "عدد الأكواب"}))
+
+    st.dataframe(table2.rename(columns={
+        "Day": "اسم اليوم",
+        "Cups_Count": "عدد الأكواب",
+        "Type": "نوع البيانات"
+    }))
 
     # =====================
-    # 📈 الرسم الجديد (المطلوب)
+    # 📈 الرسم (متصل + ألوان فقط)
     # =====================
     st.subheader("📈 الرسم البياني")
 
     fig, ax = plt.subplots(figsize=(12,5))
 
-    # 🔵 الجدول الأول
-    ax.plot(
-        table1.index,
-        table1["Cups_Count"],
-        color="blue",
-        marker="o",
-        label="Table 1 (Historical 5 days)"
-    )
+    # كامل السلسلة حتى النهاية
+    full = df_sim.loc[:final_date].copy()
 
-    # 🟠 الجدول الثاني
-    ax.plot(
-        table2.index,
-        table2["Cups_Count"],
-        color="orange",
-        marker="o",
-        linestyle="--",
-        label="Table 2 (Forecast)"
-    )
+    # split
+    hist = full.loc[:selected_date]
+    fc = full.loc[selected_date:]
+
+    # 🔵 خط واحد متصل (قبل التنبؤ)
+    ax.plot(hist.index,
+            hist["Cups_Count"],
+            color="blue",
+            label="Historical")
+
+    # 🟠 خط متصل مكمل (forecast)
+    ax.plot(fc.index,
+            fc["Cups_Count"],
+            color="orange",
+            linestyle="--",
+            label="Forecast")
 
     ax.axvline(selected_date, color="gray", linestyle=":")
 
