@@ -16,21 +16,23 @@ st.markdown("""
     background-color: #efe6dd;
 }
 
-/* الجداول */
+/* الجداول - رمادي خفيف */
 div[data-testid="stDataFrame"] {
-    background-color: #fff8f3;
+    background-color: #f2f2f2;
     border-radius: 12px;
     padding: 8px;
 }
 
-/* النص */
+/* إزالة ثقل الخطوط */
 h1, h2, h3 {
     text-align: center;
+    font-weight: 500 !important;
+    color: #4b3b2a !important;
 }
 
-/* إزالة أبيض */
+/* تحسين عام */
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1.5rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -40,7 +42,7 @@ h1, h2, h3 {
 # =====================
 st.markdown("""
 <div style="background:#6f4e37;padding:12px;border-radius:12px;color:white;text-align:center;">
-<h2>☕ نظام التنبؤ الذكي للقهوة</h2>
+<h2 style="font-weight:500;">☕ نظام التنبؤ الذكي للقهوة</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -83,13 +85,14 @@ with col2:
 
 selected_date = pd.to_datetime(selected_date)
 
+st.markdown("---")
+
 # =====================
-# Forecast engine FIXED
+# Forecast engine
 # =====================
 def forecast_engine(df, model, features, start_date, end_date):
 
     current = df.copy()
-
     dates = pd.date_range(start=start_date, end=end_date)
 
     for d in dates:
@@ -121,7 +124,6 @@ def forecast_engine(df, model, features, start_date, end_date):
 # =====================
 if st.button("🔮 تشغيل التنبؤ"):
 
-    # ✔ تحديد البداية بشكل صحيح
     if selected_date <= last_real_date:
         start_forecast = selected_date + pd.Timedelta(days=1)
     else:
@@ -143,24 +145,38 @@ if st.button("🔮 تشغيل التنبؤ"):
     table2["Day"] = table2.index.day_name()
 
     # =====================
-    # Layout tables
+    # Titles (خفيفة + أنحف)
     # =====================
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("### 📊 آخر 5 أيام")
+        st.markdown("""
+        <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
+        📊 آخر 5 أيام
+        </h4>
+        """, unsafe_allow_html=True)
+
         st.dataframe(table1[["Day","Cups_Count","Type"]], use_container_width=True)
 
     with col2:
-        st.markdown("### 🔮 التنبؤ")
+        st.markdown("""
+        <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
+        🔮 التنبؤ
+        </h4>
+        """, unsafe_allow_html=True)
+
         st.dataframe(table2[["Day","Cups_Count","Type"]], use_container_width=True)
 
     # =====================
-    # Chart
+    # Chart (fixed size)
     # =====================
     st.markdown("---")
 
-    st.markdown("### 📈 منحنى الطلب على القهوة")
+    st.markdown("""
+    <h4 style="text-align:center;color:#6f4e37;font-weight:500;">
+    📈 الرسم البياني
+    </h4>
+    """, unsafe_allow_html=True)
 
     plot_start = last_real_date - pd.Timedelta(days=50)
     plot_df = df_sim.loc[plot_start:end_forecast]
@@ -168,18 +184,17 @@ if st.button("🔮 تشغيل التنبؤ"):
     hist = plot_df.loc[:selected_date]
     fc = plot_df.loc[start_forecast:end_forecast]
 
-    fig, ax = plt.subplots(figsize=(8,3))  # ✔ أصغر
+    # ✔ حجم متوسط (مو صغير ولا كبير)
+    fig, ax = plt.subplots(figsize=(8.5,3.8))
 
-    # 🔵 تاريخي (أنحف)
     ax.plot(
         hist.index,
         hist["Cups_Count"],
         color="#5c4033",
-        linewidth=1.5,
+        linewidth=1.6,
         label="Historical"
     )
 
-    # 🟠 Forecast (متقطع)
     ax.plot(
         fc.index,
         fc["Cups_Count"],
